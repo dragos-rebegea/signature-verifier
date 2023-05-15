@@ -2,18 +2,20 @@
 
 multiversx_sc::imports!();
 
-pub type SignatureType<M> = ManagedBuffer<M>;
-pub type SignArgs<M> = MultiValue2<ManagedAddress<M>, SignatureType<M>>; 
+use multiversx_sc::api::ED25519_SIGNATURE_BYTE_LEN;
+
+pub type Signature<M> = ManagedByteArray<M, ED25519_SIGNATURE_BYTE_LEN>;
+pub type SignArgs<M> = MultiValue2<ManagedAddress<M>, Signature<M>>; 
 
 #[multiversx_sc::contract]
-pub trait Signature {
+pub trait SignaturesVerification {
     #[init]
     fn init(&self) {}
 
     #[endpoint]
     fn verify(
         &self, 
-        message: ManagedBuffer,
+        message: &ManagedBuffer,
         args: MultiValueEncoded<SignArgs<Self::Api>>
     ) {
         for arg in args {
@@ -27,15 +29,12 @@ pub trait Signature {
         &self,
         signer: ManagedAddress<Self::Api>,
         message: &ManagedBuffer,
-        signature: &SignatureType<Self::Api>,
+        signature: &Signature<Self::Api>,
     ) {
-        let mut data = ManagedBuffer::new();
-        let _ = message.dep_encode(&mut data);
-
         let valid_signature = self.crypto().verify_ed25519(
             signer.as_managed_buffer(),
-            &data,
-            signature,
+            message,
+            signature.as_managed_buffer(),
         );
         require!(valid_signature, "Invalid signature");
     }
